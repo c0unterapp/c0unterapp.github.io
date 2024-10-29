@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Days Since Counter</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .app-container {
+            width: 100%;
+            min-height: calc(100vh - 4rem);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 25px;
+            position: relative;
+            transition: background 0.5s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            box-sizing: border-box;
+            border: 3px solid rgba(25, 118, 210, 0.3);
+        }
+        .app-container.celebrating {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+            border-color: rgba(255, 68, 68, 0.3);
+        }
+        .celebration-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('canadaflag.gif') center/cover;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 9999;
+            border-radius: 25px;
+        }
+        .celebration-overlay.active {
+            opacity: 0.3;
+        }
+        .page-container {
+            text-align: center;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header-container {
+            width: min(95%, 2000px);
+            margin-bottom: 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .header-input {
+            width: 100%;
+            padding: 0.5rem;
+            font-size: clamp(2rem, 4vw, 5rem);
+            border: none;
+            background-color: transparent;
+            text-align: center;
+            color: #1976d2;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .app-container.celebrating .header-input {
+            color: #fff;
+        }
+        .header-input:focus {
+            outline: none;
+        }
+        .header-input::placeholder {
+            color: #1976d2;
+            opacity: 0.7;
+        }
+        .main-content {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 4rem;
+            justify-content: center;
+            width: 100%;
+            padding: 0 2rem;
+            box-sizing: border-box;
+        }
+        .counter-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 4rem 6rem;
+            position: relative;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.5s ease;
+            width: min(90%, 750px);
+            box-sizing: border-box;
+        }
+        .app-container.celebrating .counter-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.2);
+        }
+        .counter {
+            font-size: clamp(6rem, 15vw, 12rem);
+            font-weight: bold;
+            color: #333;
+            margin: 1rem 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .days-text {
+            font-size: clamp(2rem, 4vw, 3rem);
+            color: #666;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .reset-button {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .reset-button::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 0%, transparent 80%, rgba(255,255,255,0.2) 100%);
+            transition: all 0.3s ease;
+            top: 0;
+            left: 0;
+        }
+        .app-container.celebrating .reset-button {
+            background-color: #ff4444;
+        }
+        .reset-button:hover {
+            transform: scale(1.05) rotate(5deg);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+        }
+        .reset-button:active {
+            transform: scale(0.95) rotate(-5deg);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+        .app-container.celebrating .reset-button:hover {
+            background-color: #ff6666;
+        }
+        .last-reset {
+            margin-top: 1rem;
+            color: #666;
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+        }
+        .calendar-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #1976d2;
+            cursor: pointer;
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            transition: transform 0.3s, color 0.3s;
+        }
+        .app-container.celebrating .calendar-icon {
+            color: #ff4444;
+        }
+        .calendar-icon:hover {
+            color: #1565c0;
+            transform: scale(1.1);
+        }
+        .app-container.celebrating .calendar-icon:hover {
+            color: #ff6666;
+        }
+        .date-picker-container {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            display: none;
+            z-index: 1000;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .date-picker-container.visible {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .date-input {
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            width: 200px;
+            transition: border-color 0.3s;
+        }
+        .date-input:focus {
+            outline: none;
+            border-color: #1976d2;
+        }
+        .app-container.celebrating .date-input:focus {
+            border-color: #ff4444;
+        }
+        .apply-date {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .app-container.celebrating .apply-date {
+            background-color: #ff4444;
+        }
+        .apply-date:hover {
+            background-color: #1565c0;
+            transform: translateY(-2px);
+        }
+        .app-container.celebrating .apply-date:hover {
+            background-color: #ff6666;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media screen and (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+                gap: 3rem;
+            }
+            .counter-container {
+                padding: 3rem 4rem;
+            }
+            .reset-button {
+                width: 180px;
+                height: 180px;
+                font-size: 1.75rem;
+            }
+            body {
+                padding: 1rem;
+            }
+        }
+        @media screen and (max-width: 768px) {
+            .main-content {
+                padding: 0 1rem;
+            }
+            .counter-container {
+                padding: 2rem;
+            }
+            .reset-button {
+                width: 140px;
+                height: 140px;
+                font-size: 1.5rem;
+            }
+            .date-picker-container {
+                right: 50%;
+                transform: translateX(50%);
+                width: 90%;
+                max-width: 300px;
+            }
+            .date-input {
+                width: 100%;
+            }
+            .header-container {
+                margin-bottom: 2rem;
+            }
+            body {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <audio id="anthem" src="ocanada.mp3" preload="auto"></audio>
+        <div class="celebration-overlay"></div>
+        <div class="page-container">
+            <div class="header-container">
+                <input 
+                    type="text" 
+                    class="header-input" 
+                    id="headerText1" 
+                    placeholder="DAYS SINCE"
+                    value="DAYS SINCE"
+                >
+                <input 
+                    type="text" 
+                    class="header-input" 
+                    id="headerText2" 
+                    placeholder="ENTER EVENT..."
+                    value="LAST INCIDENT"
+                >
+            </div>
+            <div class="main-content">
+                <div class="counter-container">
+                    <i class="fas fa-calendar calendar-icon" onclick="toggleDatePicker()"></i>
+                    <div class="date-picker-container" id="datePicker">
+                        <input type="date" id="manualDate" class="date-input">
+                        <button class="apply-date" onclick="setManualDate()">Apply Date</button>
+                    </div>
+                    <div class="counter" id="counter">0</div>
+                    <div class="days-text">DAYS</div>
+                    <div class="last-reset" id="lastReset"></div>
+                </div>
+                <button class="reset-button" onclick="resetCounter()">SOLD!</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAudio = null;
+
+        function fireConfetti() {
+            // First burst
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            // Side bursts
+            setTimeout(() => {
+                confetti({
+                    particleCount: 50,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 }
+                });
+                confetti({
+                    particleCount: 50,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 }
+                });
+            }, 250);
+
+            // Final burst
+            setTimeout(() => {
+                confetti({
+                    particleCount: 150,
+                    spread: 100,
+                    origin: { y: 0.7 }
+                });
+            }, 500);
+        }
+
+        function getDaysBetweenDates(startDate, endDate) {
+            const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+            const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+            const diffTime = end - start;
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        function updateCounter() {
+            const lastResetDate = localStorage.getItem('lastReset') 
+                ? new Date(localStorage.getItem('lastReset')) 
+                : new Date();
+            
+            const currentDate = new Date();
+            const diffDays = getDaysBetweenDates(lastResetDate, currentDate);
+            
+            document.getElementById('counter').textContent = diffDays;
+            
+            const formattedDate = lastResetDate.toLocaleDateString('en-NZ', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            
+            document.getElementById('lastReset').textContent = 
+                `Last reset: ${formattedDate}`;
+        }
+
+        function startCelebration() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+
+            document.querySelector('.app-container').classList.add('celebrating');
+            document.querySelector('.celebration-overlay').classList.add('active');
+            
+            fireConfetti();
+            
+            const anthem = document.getElementById('anthem');
+            anthem.play();
+            currentAudio = anthem;
+            
+            setTimeout(() => {
+                document.querySelector('.app-container').classList.remove('celebrating');
+                document.querySelector('.celebration-overlay').classList.remove('active');
+                anthem.pause();
+                anthem.currentTime = 0;
+            }, 5000);
+        }
+
+        function resetCounter() {
+            const currentDate = new Date();
+            localStorage.setItem('lastReset', currentDate.toISOString());
+            updateCounter();
+            startCelebration();
+        }
+
+        function toggleDatePicker() {
+            const datePicker = document.getElementById('datePicker');
+            datePicker.classList.toggle('visible');
+            
+            const lastResetDate = localStorage.getItem('lastReset')
+                ? new Date(localStorage.getItem('lastReset'))
+                : new Date();
+            
+            const dateInput = document.getElementById('manualDate');
+            dateInput.value = lastResetDate.toISOString().split('T')[0];
+        }
+
+        function setManualDate() {
+            const dateInput = document.getElementById('manualDate');
+            const selectedDate = new Date(dateInput.value);
+            
+            selectedDate.setHours(0, 0, 0, 0);
+            
+            if (selectedDate instanceof Date && !isNaN(selectedDate)) {
+                localStorage.setItem('lastReset', selectedDate.toISOString());
+                updateCounter();
+                
+                document.getElementById('datePicker').classList.remove('visible');
+            }
+        }
+
+        // Save both header texts separately
+        document.getElementById('headerText1').addEventListener('input', function(e) {
+            localStorage.setItem('headerText1', e.target.value);
+        });
+
+        document.getElementById('headerText2').addEventListener('input', function(e) {
+            localStorage.setItem('headerText2', e.target.value);
+        });
+
+        if (!localStorage.getItem('lastReset')) {
+            resetCounter();
+        }
+
+        // Load both header texts
+        if (localStorage.getItem('headerText1')) {
+            document.getElementById('headerText1').value = localStorage.getItem('headerText1');
+        }
+        if (localStorage.getItem('headerText2')) {
+            document.getElementById('headerText2').value = localStorage.getItem('headerText2');
+        }
+        
+        updateCounter();
+
+        setInterval(updateCounter, 1000 * 60 * 60);
+
+        document.addEventListener('click', function(event) {
+            const datePicker = document.getElementById('datePicker');
+            const calendarIcon = document.querySelector('.calendar-icon');
+            
+            if (!datePicker.contains(event.target) && event.target !== calendarIcon) {
+                datePicker.classList.remove('visible');
+            }
+        });
+    </script>
+</body>
+</html>
