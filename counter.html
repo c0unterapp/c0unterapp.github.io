@@ -79,13 +79,13 @@
         }
         .header-container {
             width: 100%;
-            padding: 0 0.5rem 0.75rem 0.5rem;
+            padding: 0 0.5rem 1.25rem 0.5rem;
             box-sizing: border-box;
         }
         .header-input {
             width: 98%;
             padding: 0.5rem;
-            font-size: clamp(2rem, 5vw, 3rem);
+            font-size: clamp(1.5rem, 4.1vw, 2.7rem);
             border: none;
             background-color: transparent;
             text-align: center;
@@ -95,6 +95,10 @@
             text-transform: uppercase;
             letter-spacing: 2px;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+            margin-bottom: 0.5rem;
+        }
+        .app-container.celebrating .header-input {
+            color: white;
         }
         .main-content {
             flex: 1;
@@ -161,9 +165,15 @@
             justify-content: center;
             flex-shrink: 0;
         }
+        .app-container.celebrating .reset-button {
+            background-color: #ff4444;
+        }
         .reset-button:hover {
             transform: scale(1.05);
             box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+        }
+        .app-container.celebrating .reset-button:hover {
+            background-color: #ff6666;
         }
         .last-reset {
             font-size: 1.2rem;
@@ -408,6 +418,18 @@
             }
         }
 
+        function scheduleNextRefresh() {
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            
+            const timeUntilMidnight = tomorrow - now;
+            setTimeout(() => {
+                location.reload();
+            }, timeUntilMidnight);
+        }
+
         document.getElementById('headerText').addEventListener('input', function(e) {
             localStorage.setItem('headerText', e.target.value);
         });
@@ -421,6 +443,7 @@
         }
         
         updateCounter();
+        scheduleNextRefresh(); // Schedule the first midnight refresh
 
         setInterval(updateCounter, 1000 * 60 * 60);
 
