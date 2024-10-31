@@ -10,99 +10,104 @@
             height: 600px;
             width: 100%;
         }
-        body {
-            margin: 0;
-            padding: 20px;
+        #error {
+            color: red;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid red;
+            display: none;
         }
     </style>
 </head>
 <body>
+    <div id="error"></div>
     <div id="map"></div>
     <script>
         // Initialize map centered on NZ
         const map = L.map('map').setView([-41.2728, 173.2995], 6);
 
-        // Add OpenStreetMap base layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Default style for regions
         function defaultStyle() {
             return {
-                color: '#000',      // Black outline
-                weight: 1,          // Thin line weight
-                fillColor: '#fff',  // White fill
-                fillOpacity: 0      // Transparent fill
+                color: '#000',
+                weight: 1,
+                fillColor: '#fff',
+                fillOpacity: 0
             };
         }
 
-        // Style for selected regions
         function selectedStyle() {
             return {
-                color: '#000',          // Keep black outline
-                weight: 1,              // Keep thin line weight
-                fillColor: '#add8e6',   // Light blue fill
-                fillOpacity: 0.6        // Semi-transparent
+                color: '#000',
+                weight: 1,
+                fillColor: '#add8e6',
+                fillOpacity: 0.6
             };
         }
 
-        // Keep track of selected features
         let selectedFeatures = new Set();
 
-        function onEachFeature(feature, layer) {
-            // Add popup with region name
-            layer.bindPopup(feature.properties.TA2023_V1_00_NAME);
-            
-            layer.on('click', function(e) {
-                const featureId = feature.properties.TA2023_V1_00;
-                
-                if (selectedFeatures.has(featureId)) {
-                    // If already selected, unselect it
-                    selectedFeatures.delete(featureId);
-                    layer.setStyle(defaultStyle());
-                } else {
-                    // If not selected, select it
-                    selectedFeatures.add(featureId);
-                    layer.setStyle(selectedStyle());
-                }
-            });
-
-            // Add hover effect
-            layer.on('mouseover', function(e) {
-                if (!selectedFeatures.has(feature.properties.TA2023_V1_00)) {
-                    layer.setStyle({
-                        weight: 2,
-                        fillOpacity: 0.1
-                    });
-                }
-            });
-
-            layer.on('mouseout', function(e) {
-                if (!selectedFeatures.has(feature.properties.TA2023_V1_00)) {
-                    layer.setStyle(defaultStyle());
-                }
-            });
-        }
-
-        // Load and display the GeoJSON
         fetch('territorial-authority-2023-generalised.json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                L.geoJSON(data, {
+                // Convert GeometryCollection to GeoJSON FeatureCollection
+                const features = data.geometries.map((geometry, index) => {
+                    return {
+                        type: "Feature",
+                        id: index,
+                        properties: {
+                            id: index
+                        },
+                        geometry: geometry
+                    };
+                });
+
+                const featureCollection = {
+                    type: "FeatureCollection",
+                    features: features
+                };
+
+                // Create the Leaflet layer
+                L.geoJSON(featureCollection, {
                     style: defaultStyle,
-                    onEachFeature: onEachFeature
+                    onEachFeature: function(feature, layer) {
+                        layer.on('click', function() {
+                            const featureId = feature.id;
+                            if (selectedFeatures.has(featureId)) {
+                                selectedFeatures.delete(featureId);
+                                layer.setStyle(defaultStyle());
+                            } else {
+                                selectedFeatures.add(featureId);
+                                layer.setStyle(selectedStyle());
+                            }
+                        });
+
+                        // Add hover effect
+                        layer.on('mouseover', function() {
+                            if (!selectedFeatures.has(feature.id)) {
+                                layer.setStyle({
+                                    weight: 2,
+                                    fillOpacity: 0.1
+                                });
+                            }
+                        });
+
+                        layer.on('mouseout', function() {
+                            if (!selectedFeatures.has(feature.id)) {
+                                layer.setStyle(defaultStyle());
+                            }
+                        });
+                    }
                 }).addTo(map);
             })
             .catch(error => {
-                console.error('Error loading the GeoJSON file:', error);
-                alert('Error loading map data. Please check the console for details.');
+                console.error('Error:', error);
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error loading map data: ' + error.message;
             });
     </script>
 </body>
