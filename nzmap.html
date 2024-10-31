@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NZ Territorial Authorities Map</title>
+    <meta charset="utf-8" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        // Initialize map centered on NZ
+        const map = L.map('map').setView([-41.2728, 173.2995], 6);
+
+        // Add OpenStreetMap base layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Default style for regions
+        function defaultStyle() {
+            return {
+                color: '#000',      // Black outline
+                weight: 1,          // Thin line weight
+                fillColor: '#fff',  // White fill
+                fillOpacity: 0      // Transparent fill
+            };
+        }
+
+        // Style for selected regions
+        function selectedStyle() {
+            return {
+                color: '#000',          // Keep black outline
+                weight: 1,              // Keep thin line weight
+                fillColor: '#add8e6',   // Light blue fill
+                fillOpacity: 0.6        // Semi-transparent
+            };
+        }
+
+        // Keep track of selected features
+        let selectedFeatures = new Set();
+
+        function onEachFeature(feature, layer) {
+            // Add popup with region name
+            layer.bindPopup(feature.properties.TA2023_V1_00_NAME);
+            
+            layer.on('click', function(e) {
+                const featureId = feature.properties.TA2023_V1_00;
+                
+                if (selectedFeatures.has(featureId)) {
+                    // If already selected, unselect it
+                    selectedFeatures.delete(featureId);
+                    layer.setStyle(defaultStyle());
+                } else {
+                    // If not selected, select it
+                    selectedFeatures.add(featureId);
+                    layer.setStyle(selectedStyle());
+                }
+            });
+
+            // Add hover effect
+            layer.on('mouseover', function(e) {
+                if (!selectedFeatures.has(feature.properties.TA2023_V1_00)) {
+                    layer.setStyle({
+                        weight: 2,
+                        fillOpacity: 0.1
+                    });
+                }
+            });
+
+            layer.on('mouseout', function(e) {
+                if (!selectedFeatures.has(feature.properties.TA2023_V1_00)) {
+                    layer.setStyle(defaultStyle());
+                }
+            });
+        }
+
+        // Load and display the GeoJSON
+        fetch('territorial-authority-2023-generalised.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                L.geoJSON(data, {
+                    style: defaultStyle,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+            })
+            .catch(error => {
+                console.error('Error loading the GeoJSON file:', error);
+                alert('Error loading map data. Please check the console for details.');
+            });
+    </script>
+</body>
+</html>
