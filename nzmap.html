@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NZ Territorial Authorities Map</title>
+    <meta charset="utf-8" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #b3d9ff;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+            background: #b3d9ff;
+        }
+        .clear-button button {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .clear-button button:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        // Initialize map with tighter bounds
+        const map = L.map('map', {
+            minZoom: 5,
+            maxZoom: 11,
+            zoomSnap: 0.1
+        }).setView([-41.5, 172], 5.5);
+
+        // Set strict bounds for NZ
+        const southWest = L.latLng(-47.5, 165);
+        const northEast = L.latLng(-34, 179);
+        const bounds = L.latLngBounds(southWest, northEast);
+        map.setMaxBounds(bounds);
+
+        function defaultStyle() {
+            return {
+                color: '#000',
+                weight: 1,
+                fillColor: '#fff',
+                fillOpacity: 0
+            };
+        }
+
+        function selectedStyle() {
+            return {
+                color: '#000',
+                weight: 1,
+                fillColor: '#0066cc',
+                fillOpacity: 0.7
+            };
+        }
+
+        let selectedFeatures = new Set(
+            JSON.parse(localStorage.getItem('selectedRegions') || '[]')
+        );
+
+        function saveSelections() {
+            localStorage.setItem('selectedRegions', 
+                JSON.stringify(Array.from(selectedFeatures))
+            );
+        }
+
+        let layersByFeatureId = {};
+
+        fetch('territorial-authority-2023-generalised.json')
+            .then(response => response.json())
+            .then(data => {
+                const features = data.geometries.map((geometry, index) => {
+                    return {
+                        type: "Feature",
+                        id: index,
+                        properties: {
+                            id: index
+                        },
+                        geometry: geometry
+                    };
+                });
+
+                const featureCollection = {
+                    type: "FeatureCollection",
+                    features: features
+                };
+
+                let geoJsonLayer = L.geoJSON(featureCollection, {
+                    style: function(feature) {
+                        return selectedFeatures.has(feature.id) ? selectedStyle() : defaultStyle();
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layersByFeatureId[feature.id] = layer;
+
+                        layer.on('click', function() {
+                            const featureId = feature.id;
+                            if (selectedFeatures.has(featureId)) {
+                                selectedFeatures.delete(featureId);
+                                layer.setStyle(defaultStyle());
+                            } else {
+                                selectedFeatures.add(featureId);
+                                layer.setStyle(selectedStyle());
+                            }
+                            saveSelections();
+                        });
+
+                        layer.on('mouseover', function() {
+                            if (!selectedFeatures.has(feature.id)) {
+                                layer.setStyle({
+                                    weight: 2,
+                                    fillOpacity: 0.1
+                                });
+                            }
+                        });
+
+                        layer.on('mouseout', function() {
+                            if (!selectedFeatures.has(feature.id)) {
+                                layer.setStyle(defaultStyle());
+                            }
+                        });
+                    }
+                }).addTo(map);
+
+                // Fit map to the GeoJSON layer bounds
+                map.fitBounds(geoJsonLayer.getBounds(), {
+                    padding: [20, 20],
+                    maxZoom: 6.5
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+
+        // Add clear button
+        const clearButton = L.control({position: 'topright'});
+        clearButton.onAdd = function(map) {
+            const div = L.DomUtil.create('div', 'clear-button');
+            div.innerHTML = '<button style="padding: 8px; margin: 10px; cursor: pointer;">Clear All</button>';
+            div.onclick = function() {
+                selectedFeatures.clear();
+                saveSelections();
+                Object.values(layersByFeatureId).forEach(layer => {
+                    layer.setStyle(defaultStyle());
+                });
+            };
+            return div;
+        };
+        clearButton.addTo(map);
+    </script>
+</body>
+</html>
