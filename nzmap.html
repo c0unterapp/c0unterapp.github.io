@@ -10,25 +10,33 @@
             height: 600px;
             width: 100%;
         }
-        #error {
-            color: red;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid red;
-            display: none;
-        }
     </style>
 </head>
 <body>
-    <div id="error"></div>
     <div id="map"></div>
     <script>
-        // Initialize map centered on NZ
-        const map = L.map('map').setView([-41.2728, 173.2995], 6);
+        // Initialize map centered on NZ with more restricted zoom
+        const map = L.map('map', {
+            minZoom: 5,
+            maxZoom: 11
+        }).setView([-41.2728, 173.2995], 6);
 
+        // Custom blue ocean background
+        map.createPane('background').style.zIndex = 50;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
+            className: 'background-layer',
+            pane: 'background',
+            attribution: '© OpenStreetMap contributors',
+            style: 'opacity: 0.5'
+        }).addTo(map);
+
+        // Add a blue rectangle covering the entire view
+        const oceanBounds = [[-60, 140], [-20, 200]];
+        L.rectangle(oceanBounds, {
+            color: '#b3d9ff',
+            weight: 0,
+            fillColor: '#b3d9ff',
+            fillOpacity: 0.3
         }).addTo(map);
 
         function defaultStyle() {
@@ -44,12 +52,31 @@
             return {
                 color: '#000',
                 weight: 1,
-                fillColor: '#add8e6',
-                fillOpacity: 0.6
+                fillColor: '#0066cc', // Darker blue
+                fillOpacity: 0.7
             };
         }
 
-        let selectedFeatures = new Set();
+        // Initialize selectedFeatures from localStorage
+        let selectedFeatures = new Set(
+            JSON.parse(localStorage.getItem('selectedRegions') || '[]')
+        );
+
+        // Function to save selections to localStorage
+        function saveSelections() {
+            localStorage.setItem('selectedRegions', 
+                JSON.stringify(Array.from(selectedFeatures))
+            );
+        }
+
+        // Set map bounds to restrict panning
+        const southWest = L.latLng(-47.5, 165);
+        const northEast = L.latLng(-34, 179);
+        const bounds = L.latLngBounds(southWest, northEast);
+        map.setMaxBounds(bounds);
+
+        // Store reference to all layers for easy access
+        let layersByFeatureId = {};
 
         fetch('territorial-authority-2023-generalised.json')
             .then(response => response.json())
@@ -73,8 +100,14 @@
 
                 // Create the Leaflet layer
                 L.geoJSON(featureCollection, {
-                    style: defaultStyle,
+                    style: function(feature) {
+                        // Apply selected style if feature is in selectedFeatures
+                        return selectedFeatures.has(feature.id) ? selectedStyle() : defaultStyle();
+                    },
                     onEachFeature: function(feature, layer) {
+                        // Store reference to layer
+                        layersByFeatureId[feature.id] = layer;
+
                         layer.on('click', function() {
                             const featureId = feature.id;
                             if (selectedFeatures.has(featureId)) {
@@ -84,6 +117,7 @@
                                 selectedFeatures.add(featureId);
                                 layer.setStyle(selectedStyle());
                             }
+                            saveSelections(); // Save to localStorage after each change
                         });
 
                         // Add hover effect
@@ -106,9 +140,24 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById('error').style.display = 'block';
-                document.getElementById('error').textContent = 'Error loading map data: ' + error.message;
             });
+
+        // Add a clear button to reset selections
+        const clearButton = L.control({position: 'topright'});
+        clearButton.onAdd = function(map) {
+            const div = L.DomUtil.create('div', 'clear-button');
+            div.innerHTML = '<button style="padding: 8px; margin: 10px; cursor: pointer;">Clear All</button>';
+            div.onclick = function() {
+                selectedFeatures.clear();
+                saveSelections();
+                // Reset all layer styles
+                Object.values(layersByFeatureId).forEach(layer => {
+                    layer.setStyle(defaultStyle());
+                });
+            };
+            return div;
+        };
+        clearButton.addTo(map);
     </script>
 </body>
 </html>
